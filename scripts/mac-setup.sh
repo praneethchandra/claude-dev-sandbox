@@ -5,17 +5,17 @@ set -e
 GREEN='\033[0;32m'; CYAN='\033[0;36m'; AMBER='\033[0;33m'; BOLD='\033[1m'; RESET='\033[0m'
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-echo -e "\n${BOLD}Claude Code — Mac Local Setup${RESET}\n────────────────────────────────────"
+echo -e "\n${BOLD}Claude Code - Mac Local Setup${RESET}\n"
 
 command -v brew &>/dev/null || \
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-echo -e "${GREEN}✓ Homebrew${RESET}"
+echo -e "${GREEN}Homebrew ready${RESET}"
 
 node -v 2>/dev/null | grep -qE 'v(1[89]|[2-9][0-9])' || brew install node
-echo -e "${GREEN}✓ Node.js $(node --version)${RESET}"
+echo -e "${GREEN}Node.js $(node --version)${RESET}"
 
 npm install -g @anthropic-ai/claude-code
-echo -e "${GREEN}✓ Claude Code $(claude --version 2>/dev/null)${RESET}"
+echo -e "${GREEN}Claude Code $(claude --version 2>/dev/null | head -1)${RESET}"
 
 mkdir -p ~/.claude ~/bin
 for cfg in minimal balanced full tdd; do
@@ -24,42 +24,31 @@ done
 [ -f ~/.claude/settings.json ] || cp "$REPO_DIR/.claude/settings.json" ~/.claude/
 cp "$REPO_DIR/.claude/CLAUDE.md.template" ~/.claude/
 cp ~/.claude/config.balanced.json ~/.claude/config.json
-echo -e "${GREEN}✓ Configs synced to ~/.claude/${RESET}"
+echo -e "${GREEN}Configs synced to ~/.claude/${RESET}"
 
 for s in switch-mode new-project install-plugins; do
   cp "$REPO_DIR/scripts/$s.sh" ~/bin/$s && chmod +x ~/bin/$s
 done
-echo -e "${GREEN}✓ Scripts installed to ~/bin/${RESET}"
+echo -e "${GREEN}Scripts installed to ~/bin/${RESET}"
 
-MARKER="# Claude Code Aliases"
-grep -q "$MARKER" ~/.zshrc 2>/dev/null || cat >> ~/.zshrc << 'ZSHEOF'
+grep -q "Claude Code Aliases" ~/.zshrc 2>/dev/null || cat >> ~/.zshrc << 'ZSHEOF'
 
 # Claude Code Aliases
 export PATH="$HOME/bin:$PATH"
-alias cc-minimal='switch-mode minimal'
-alias cc-balanced='switch-mode balanced'
-alias cc-full='switch-mode full'
-alias cc-tdd='switch-mode tdd'
-alias cc-mode='switch-mode show'
 alias ccm='switch-mode minimal'
 alias ccb='switch-mode balanced'
 alias ccf='switch-mode full'
 alias cct='switch-mode tdd'
+alias cc-mode='switch-mode show'
 alias ncp='new-project'
 wt-add() { git worktree add "$2" "$1"; }
 wt-rm()  { git worktree remove "$1"; }
 wt-list(){ git worktree list; }
 ZSHEOF
-echo -e "${GREEN}✓ Aliases added to ~/.zshrc${RESET}"
-
-if [ -z "$ANTHROPIC_API_KEY" ]; then
-  echo -e "\n${AMBER}Add to ~/.zshrc:${RESET}"
-  echo -e "  export ANTHROPIC_API_KEY=\"sk-ant-api03-...\"\n"
-else
-  echo -e "${GREEN}✓ ANTHROPIC_API_KEY is set${RESET}"
-fi
+echo -e "${GREEN}Aliases added to ~/.zshrc${RESET}"
 
 echo -e "\n${GREEN}${BOLD}Mac setup complete!${RESET}"
 echo -e "  source ~/.zshrc"
-echo -e "  IntelliJ: Plugins -> 'Claude Code [Beta]' -> install -> Cmd+Esc"
-echo -e "  VS Code:  Cmd+Shift+P -> 'Reopen in Container'\n"
+echo -e "  IntelliJ: Plugins -> 'Claude Code [Beta]' -> Cmd+Esc"
+echo -e "  VS Code:  Cmd+Shift+P -> 'Reopen in Container'"
+echo -e "\n  For auth: claude  (browser OAuth - works with corporate account)\n"

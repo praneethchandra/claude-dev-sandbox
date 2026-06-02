@@ -1,32 +1,33 @@
-# ─────────────────────────────────────────────────────────────────
 # docker-compose.override.yml.example
 #
 # HOW TO USE:
 #   cp docker-compose.override.yml.example docker-compose.override.yml
-#   (edit ~/projects below to your actual projects folder)
-#   make restart
+#   Edit paths/options below, then: make restart
 #
-# After restart:
-#   ~/projects/my-app on Mac  =  /workspace/my-app in container
-#   Open in IntelliJ / VS Code from Mac directly — same files, live.
-#
-# Git: docker-compose.override.yml is in .gitignore (has your paths).
-# ─────────────────────────────────────────────────────────────────
+# Docker Compose merges this with docker-compose.yml automatically.
+# docker-compose.override.yml is in .gitignore (has your local paths).
 
 services:
   claude-dev:
     volumes:
-      # ── Your Mac projects folder ─────────────────────────────────
-      # Change ~/projects to wherever your code lives.
+      # ── Mount your Mac projects folder ────────────────────────
+      # Change ~/projects to your actual path.
+      # After make restart: ~/projects/my-app on Mac
+      #                   = /workspace/my-app in container
       - ~/projects:/workspace
 
-      # ── Git identity (so commits show your name inside container)
+      # ── Git identity ──────────────────────────────────────────
       - ~/.gitconfig:/root/.gitconfig:ro
 
-      # ── SSH keys — uncomment to push to GitHub from container ────
+      # ── SSH keys for git push ─────────────────────────────────
       # - ~/.ssh:/root/.ssh:ro
 
-      # ── SSH agent socket (macOS) — alternative to mounting keys ─
-      # - /run/host-services/ssh-auth.sock:/ssh-agent
-    # environment:
-    #   SSH_AUTH_SOCK: /ssh-agent
+      # ── AWS credentials for Bedrock auth ─────────────────────
+      # - ~/.aws:/root/.aws:ro
+
+      # ── GCP credentials for Vertex AI auth ───────────────────
+      # - ~/.config/gcloud:/root/.config/gcloud:ro
+
+      # ── Pre-authenticated OAuth credentials from your Mac ─────
+      # Run 'claude' on Mac first to authenticate, then uncomment:
+      # - ~/.claude/.credentials.json:/root/.claude/.credentials.json:ro

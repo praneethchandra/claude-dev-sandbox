@@ -1,174 +1,255 @@
-# Claude Code Development Sandbox
+# Claude Code Development Sandbox 🚀
 
-A ready-to-run Docker environment for AI-first software development. Clone, add your API key, and start building in under 5 minutes.
+A ready-to-run Docker environment for AI-first software development with Claude Code. Clone, configure, and start building — no local Node.js or tool installation required.
+
+## What's inside
+
+| Feature | Detail |
+|---|---|
+| **Claude Code CLI** | Latest version, authenticated via API key |
+| **4 Dev Modes** | MINIMAL · BALANCED · FULL · TDD (switch with `ccm/ccb/ccf/cct`) |
+| **Hooks** | Auto-lint on write · audit log · safety checks · session summary |
+| **Project bootstrap** | `new-project` script with TypeScript, Python, fullstack, generic templates |
+| **Multi-agent support** | `wt-add/wt-rm/wt-list` aliases for git worktree management |
+| **Shell** | zsh + Oh My Zsh · all aliases pre-loaded · `help-claude` command |
+| **Lifecycle templates** | CLAUDE.md templates for all 8 stages (IDEA→SHAPE→PLAN→BUILD→TEST→REVIEW→DEPLOY→MONITOR) |
 
 ## Quick start
 
 ```bash
+# 1. Clone
 git clone https://github.com/YOUR_USERNAME/claude-dev-sandbox
 cd claude-dev-sandbox
 
+# 2. Add your API key
 cp .env.example .env
-# Edit .env → add your ANTHROPIC_API_KEY
-# Get it from: https://console.anthropic.com/settings/keys
+nano .env   # paste your key: ANTHROPIC_API_KEY=sk-ant-api03-...
 
-make check    # verify prerequisites
-make start    # build image + start container (~3 min first time)
-make enter    # open shell inside container
+# 3. Start
+make start
 
-# Inside container:
+# 4. Enter the container
+make enter
+
+# 5. Create your first project (inside container)
 new-project my-app typescript
 cd /workspace/my-app
-ccb && claude
+ccb && claude          # BALANCED mode + start coding
 ```
 
-## What's included
+Get your API key at [console.anthropic.com](https://console.anthropic.com/settings/keys).
 
-| Feature | Detail |
-|---|---|
-| Claude Code CLI | Latest version, authenticated via API key |
-| 4 dev modes | MINIMAL · BALANCED · FULL · TDD |
-| Hooks | Auto-lint · audit log · safety check · token metrics · session summary |
-| Metrics | `make metrics` — token usage dashboard, per-tool breakdown |
-| Project bootstrap | `new-project` — TypeScript, Python, fullstack, generic templates |
-| Multi-agent support | `wt-add/wt-rm/wt-list` for git worktree workflows |
-| VS Code Dev Containers | `.devcontainer/devcontainer.json` included |
-| Mac local setup | `scripts/mac-setup.sh` for IntelliJ + native use |
-| GitHub Actions | Auto-build and push to ghcr.io on merge |
+---
 
-## Dev modes
+## Mounting your existing projects
+
+By default, projects are stored in a Docker named volume (`claude-workspace`). To mount your host filesystem instead:
+
+```bash
+cp docker-compose.override.yml.example docker-compose.override.yml
+nano docker-compose.override.yml   # change ~/projects to your path
+make restart
+```
+
+Now files in `~/projects` on your machine appear at `/workspace` inside the container — and vice versa.
+
+---
+
+## Dev Modes
+
+Switch modes before starting a Claude Code session:
 
 | Alias | Mode | Use when |
 |---|---|---|
-| `ccm` | MINIMAL | Small fix, rename, remove a line |
-| `ccb` | BALANCED | New feature or endpoint ← **default** |
-| `ccf` | FULL | Pre-PR review, architecture, security audit |
+| `ccm` | MINIMAL | Rename, small fix, remove a line |
+| `ccb` | BALANCED | New feature, endpoint, component ← **default** |
+| `ccf` | FULL | Pre-PR review, architecture audit, security |
 | `cct` | TDD | New module from scratch (Red→Green→Refactor) |
 
 ```bash
-cc-mode        # show current mode
-ccf && claude  # switch to FULL then start session
+cc-mode         # show current mode
+ccf && claude   # switch to FULL then start session
 ```
 
-## Token metrics
+---
+
+## Hooks (automatic quality gates)
+
+Hooks run automatically — you don't configure anything per-project.
+
+| Event | What runs |
+|---|---|
+| Before every Bash command | Writes to audit log · flags dangerous commands |
+| After every file write | Auto-runs ESLint fix on .ts/.tsx/.js/.jsx |
+| After every file write | Re-runs matching test file |
+| When Claude finishes | Appends `git diff --stat` to `.claude/session-log.md` |
+
+Check the audit log any time:
+```bash
+cat ~/.claude/audit.log
+cat .claude/session-log.md
+```
+
+---
+
+## Claude Code slash commands (inside a session)
+
+```
+/stage      Show current lifecycle stage + next actions
+/plan       Step-by-step plan before acting (>2 files)
+/next       Advance to next lifecycle stage
+/review     Full code audit: types, logic, tests, security
+/test       Generate tests for current file
+/security   Security vulnerability checklist
+/docs       Generate JSDoc/docstrings
+/effort     Adjust reasoning depth (low → xhigh)
+/ultrareview [PR#]   Cloud parallel code review (May 2026)
+/workflows  View dynamic workflow runs (May 2026)
+/voice      Push-to-talk mode
+/plugin     Manage MCP plugins
+```
+
+---
+
+## Latest Claude features (May 2026)
+
+### Dynamic Workflows *(Requires Max/Team/Enterprise plan)*
+```
+> "Create a dynamic workflow to audit every file in this
+>  repo for security vulnerabilities"
+/workflows   # monitor progress
+```
+Orchestrates 10–1,000 parallel subagents. Plan lives in a JS script, not the context window.
+
+### Agent Teams *(Research preview, requires Opus 4.6)*
+```
+> /agents-team
+```
+Built-in coordination: team lead plans, spawns, assigns, and merges teammates' work.
+
+### Auto Mode *(March 2026)*
+```bash
+claude --enable-auto-mode
+# or: claude-auto (alias pre-loaded)
+```
+AI safety classifier auto-approves routine actions, only prompts when genuinely uncertain.
+
+### Claude Design *(April 2026 — external tool)*
+```
+1. Open claude.ai/design
+2. Describe UI → prototype generated
+3. Export handoff bundle
+4. In container: claude → "implement the handoff bundle"
+```
+
+### Effort Control
+```
+/effort           # interactive slider
+/effort xhigh     # deep reasoning for hard problems
+```
+
+---
+
+## Multi-agent workflow (git worktrees)
 
 ```bash
-make metrics           # usage dashboard (last 7 days)
-make metrics-detail    # per-tool breakdown with timestamps
-make metrics-today     # today only
-make metrics-all       # full history
+# Inside /workspace/my-project
+wt-add feature/auth-system  /workspace/my-project-agent1
+wt-add feature/add-tests    /workspace/my-project-agent2
 
-# Inside Claude Code session:
-/cost                  # live running total
+# Open two more `make enter` terminals:
+# Terminal 2: cd /workspace/my-project-agent1 && ccb && claude
+# Terminal 3: cd /workspace/my-project-agent2 && cct && claude
+
+# Merge when done
+git merge feature/auth-system
+git merge feature/add-tests
+
+# Cleanup
+wt-rm /workspace/my-project-agent1
+wt-rm /workspace/my-project-agent2
 ```
 
-## Expose code to your Mac (for IDE access)
+---
+
+## Makefile reference
 
 ```bash
-make mount     # set up ~/projects mount, then:
-make restart   # apply it
-
-# Now ~/projects/my-app on Mac = /workspace/my-app in container
-# Open in IntelliJ or VS Code directly from Mac — same files, live
+make help       # all targets
+make build      # build image from scratch
+make start      # start container (build if needed)
+make stop       # stop container (data preserved)
+make restart    # stop + start
+make enter      # open shell in running container
+make logs       # tail container logs
+make status     # container status + current mode
+make mode MODE=full   # switch mode from host
+make rebuild    # force full rebuild
+make clean      # remove container + image (keeps volumes)
+make purge      # remove everything including volumes ⚠️
+make check      # verify prerequisites before first run
 ```
 
-## Open in VS Code (attached to container)
+---
 
-```bash
-make open                   # VS Code at /workspace
-make open PROJECT=my-app    # VS Code at /workspace/my-app
-```
+## Lifecycle stages (CLAUDE.md)
 
-Requires the VS Code **Dev Containers** extension.
-
-## Export a project to Mac
-
-```bash
-make export PROJECT=my-app            # copies to ~/projects/my-app
-make export PROJECT=my-app TO=~/Desktop
-```
-
-## Edit hooks and config
-
-```bash
-make edit-hooks                       # edit settings.json (hooks)
-make edit-claude PROJECT=my-app       # edit project CLAUDE.md
-make skills                           # list installed MCP plugins
-```
-
-## Mac local setup (for IntelliJ)
-
-```bash
-chmod +x scripts/mac-setup.sh && ./scripts/mac-setup.sh
-# Then in IntelliJ: Plugins → search "Claude Code" → install "Claude Code [Beta]"
-# Press Cmd+Esc to open Claude Code from anywhere in IntelliJ
-```
-
-## All make targets
+Update `## Stage` in your project's `.claude/CLAUDE.md` as you work. Claude reads this every session and orients itself accordingly.
 
 ```
-make help            Show all targets
-make build           Build Docker image from scratch
-make start           Start sandbox
-make stop            Stop (data preserved)
-make restart         Stop + start
-make enter           Open shell in container
-make logs            Tail container logs
-make status          Container status + active mode
-make mode MODE=full  Switch mode from host
-make open            Open VS Code attached to container
-make export          Copy project to Mac
-make mount           Set up host folder mount
-make metrics         Token usage dashboard
-make metrics-detail  Per-tool breakdown
-make edit-hooks      Edit hooks (settings.json)
-make edit-claude     Edit project CLAUDE.md
-make skills          List MCP plugins
-make rebuild         Force full rebuild
-make clean           Remove container + image
-make purge           Remove everything including volumes
-make check           Verify prerequisites
+IDEA → SHAPE → PLAN → BUILD → TEST → REVIEW → DEPLOY → MONITOR → (loops)
 ```
 
-## Project lifecycle (CLAUDE.md stages)
+Use `/next` inside Claude Code to advance stages automatically.
 
-```
-IDEA → SHAPE → PLAN → BUILD → TEST → REVIEW → DEPLOY → MONITOR
-```
+---
 
-Use `/next` inside Claude Code to advance stages. Claude reads `## Stage` in CLAUDE.md and orients itself automatically every session.
-
-## Repository structure
+## Project structure
 
 ```
 claude-dev-sandbox/
-├── Dockerfile
-├── docker-compose.yml
-├── docker-compose.override.yml.example  ← copy + edit for host mount
-├── Makefile
-├── .env.example
+├── Dockerfile                       ← Ubuntu + Node + Claude Code + zsh
+├── docker-compose.yml               ← Service, volumes, env
+├── docker-compose.override.yml.example  ← Host folder mount template
+├── Makefile                         ← make start / make enter / etc.
+├── .env.example                     ← Copy to .env, add API key
 ├── .gitignore
-├── README.md
 ├── .claude/
-│   ├── settings.json          ← hooks: audit, lint, metrics, safety
-│   ├── config.minimal.json
-│   ├── config.balanced.json
-│   ├── config.full.json
-│   ├── config.tdd.json
-│   └── CLAUDE.md.template
+│   ├── settings.json                ← Hooks (audit, lint, tests, stop)
+│   ├── config.minimal.json          ← MINIMAL mode definition
+│   ├── config.balanced.json         ← BALANCED mode definition
+│   ├── config.full.json             ← FULL mode definition
+│   ├── config.tdd.json              ← TDD mode definition
+│   └── CLAUDE.md.template           ← Template for new projects
 ├── config/
-│   └── zshrc                  ← aliases, help-claude, wt-* functions
+│   └── zshrc                        ← Shell aliases + help-claude function
 ├── scripts/
-│   ├── docker-entrypoint.sh
-│   ├── switch-mode.sh
-│   ├── new-project.sh
-│   ├── install-plugins.sh
-│   ├── metrics-hook.py        ← logs per-tool metrics
-│   ├── metrics.py             ← usage dashboard
-│   └── mac-setup.sh           ← local Mac install (for IntelliJ)
-├── .devcontainer/
-│   └── devcontainer.json      ← VS Code Dev Containers config
+│   ├── docker-entrypoint.sh         ← Container startup + banner
+│   ├── switch-mode.sh               ← Mode switcher
+│   ├── new-project.sh               ← Project bootstrap
+│   └── install-plugins.sh           ← MCP plugin installer
 └── .github/
     └── workflows/
-        └── docker-build.yml   ← build + push to ghcr.io
+        └── docker-build.yml          ← Build + push to ghcr.io on merge
 ```
+
+---
+
+## Updating Claude Code
+
+```bash
+# Rebuild the image to get the latest Claude Code version
+make rebuild
+```
+
+Or pin to a specific version in `docker-compose.yml`:
+```yaml
+args:
+  CLAUDE_CODE_VERSION: "2.1.154"
+```
+
+---
+
+## Contributing
+
+PRs welcome for new stack templates in `new-project.sh`, additional hooks in `settings.json`, or improvements to the mode configs.

@@ -1,69 +1,111 @@
 #!/usr/bin/env python3
 """
-metrics-hook.py — logs per-tool Claude Code metrics to ~/.claude/metrics.jsonl
-Called automatically by hooks in settings.json.
+metrics-hook.py
+Called by Claude Code hooks to log per-tool usage metrics.
 
-Usage:
-  metrics-hook.py pre  <tool_name> <tool_input_json>
-  metrics-hook.py post <tool_name> <tool_input_json> <tool_response_json>
-  metrics-hook.py stop <session_id> <project_dir>
+Usage (from settings.json):
+  pre  <tool_name> <tool_input_json>
+  post <tool_name> <tool_input_json> <tool_response_json>
+  stop <session_id> <project_dir>
 """
-import sys, json, os, time
+
+import sys
+import json
+import os
+import time
 from datetime import datetime
 from pathlib import Path
 
-METRICS = Path.home() / ".claude" / "metrics.jsonl"
-TIMING  = Path.home() / ".claude" / ".tool_timings.json"
-METRICS.parent.mkdir(exist_ok=True)
+METRICS_FILE = Path.home() / ".claude" / "metrics.jsonl"
+TIMING_FILE  = Path.home() / ".claude" / ".tool_start_times.json"
+METRICS_FILE.parent.mkdir(exist_ok=True)
 
-def tok(text): return max(1, len(str(text)) // 4)
+def tok(text: str) -> int:
+    """Rough token estimate: chars / 4."""
+    return max(1, len(str(text)) // 4)
 
-def load_timing():
-    try: return json.loads(TIMING.read_text()) if TIMING.exists() else {}
-    except: return {}
-
-def save_timing(data):
-    try: TIMING.write_text(json.dumps(data))
-    except: pass
-
-def append(record):
+def load_timing() -> dict:
     try:
-        with METRICS.open("a") as f:
+        return json.loads(TIMING_FILE.read_text()) if TIMING_FILE.exists() else {}
+    except Exception:
+        return {}
+
+def save_timing(data: dict):
+    try:
+        TIMING_FILE.write_text(json.dumps(data))
+    except Exception:
+        pass
+
+def append_metric(record: dict):
+    try:
+        with METRICS_FILE.open("a") as f:
             f.write(json.dumps(record) + "\n")
-    except: pass
+    except Exception:
+        pass
 
 def main():
-    if len(sys.argv) < 2: return
+    if len(sys.argv) < 2:
+        return
+
     mode = sys.argv[1]
     now  = datetime.now().isoformat(timespec="seconds")
     ts   = time.time()
 
     if mode == "pre" and len(sys.argv) >= 4:
-        t = load_timing()
-        t[sys.argv[2] + "_last"] = ts
-        save_timing(t)
+        tool_name  = sys.argv[2]
+        tool_input = sys.argv[3]
+        timing = load_timing()
+        timing[tool_name + "_last"] = ts
+        save_timing(timing)
 
     elif mode == "post" and len(sys.argv) >= 5:
-        tool, inp, resp = sys.argv[2], sys.argv[3], sys.argv[4]
-        t       = load_timing()
-        elapsed = round(ts - t.get(tool + "_last", ts), 2)
+        tool_name     = sys.argv[2]
+        tool_input    = sys.argv[3]
+        tool_response = sys.argv[4]
+
+        timing   = load_timing()
+        start_ts = timing.get(tool_name + "_last", ts)
+        elapsed  = round(ts - start_ts, 2)
+
+        input_tokens  = tok(tool_input)
+        output_tokens = tok(tool_response)
+
+        # Extract human-readable summary
         summary = ""
         try:
-            d = json.loads(inp)
-            if tool == "Bash":
-                cmd = str(d.get("command", d.get("input", "")))
+            inp = json.loads(tool_input)
+            if tool_name == "Bash":
+                cmd = str(inp.get("command", inp.get("input", "")))
                 summary = cmd[:80] + ("…" if len(cmd) > 80 else "")
-            elif tool in ("Write", "Edit", "Read"):
-                summary = str(d.get("path", d.get("file_path", "")))
-        except: summary = str(inp)[:80]
-        append({"ts": now, "tool": tool, "summary": summary,
-                "in_tok": tok(inp), "out_tok": tok(resp),
-                "elapsed": elapsed, "pwd": os.environ.get("PWD", "")})
+            elif tool_name in ("Write", "Edit"):
+                summary = str(inp.get("path", ""))
+            elif tool_name == "Read":
+                summary = str(inp.get("file_path", inp.get("path", "")))
+        except Exception:
+            summary = str(tool_input)[:80]
+
+        record = {
+            "ts":      now,
+            "tool":    tool_name,
+            "summary": summary,
+            "in_tok":  input_tokens,
+            "out_tok": output_tokens,
+            "elapsed": elapsed,
+            "pwd":     os.environ.get("PWD", ""),
+        }
+        append_metric(record)
 
     elif mode == "stop" and len(sys.argv) >= 4:
-        append({"ts": now, "tool": "_session_end",
-                "summary": sys.argv[3], "session_id": sys.argv[2],
-                "pwd": sys.argv[3]})
+        session_id  = sys.argv[2]
+        project_dir = sys.argv[3]
+        record = {
+            "ts":         now,
+            "tool":       "_session_end",
+            "summary":    project_dir,
+            "session_id": session_id,
+            "pwd":        project_dir,
+        }
+        append_metric(record)
 
 if __name__ == "__main__":
     main()
