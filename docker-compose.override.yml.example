@@ -1,0 +1,32 @@
+# ─────────────────────────────────────────────────────────────────
+# docker-compose.override.yml.example
+#
+# HOW TO USE:
+#   cp docker-compose.override.yml.example docker-compose.override.yml
+#   (edit ~/projects below to your actual projects folder)
+#   make restart
+#
+# After restart:
+#   ~/projects/my-app on Mac  =  /workspace/my-app in container
+#   Open in IntelliJ / VS Code from Mac directly — same files, live.
+#
+# Git: docker-compose.override.yml is in .gitignore (has your paths).
+# ─────────────────────────────────────────────────────────────────
+
+services:
+  claude-dev:
+    volumes:
+      # ── Your Mac projects folder ─────────────────────────────────
+      # Change ~/projects to wherever your code lives.
+      - ~/projects:/workspace
+
+      # ── Git identity (so commits show your name inside container)
+      - ~/.gitconfig:/root/.gitconfig:ro
+
+      # ── SSH keys — uncomment to push to GitHub from container ────
+      # - ~/.ssh:/root/.ssh:ro
+
+      # ── SSH agent socket (macOS) — alternative to mounting keys ─
+      # - /run/host-services/ssh-auth.sock:/ssh-agent
+    # environment:
+    #   SSH_AUTH_SOCK: /ssh-agent

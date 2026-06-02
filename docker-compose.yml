@@ -1,0 +1,62 @@
+# ─────────────────────────────────────────────────────────────────
+# Claude Code Development Sandbox — Docker Compose
+#
+# Quick start:
+#   cp .env.example .env          ← add your ANTHROPIC_API_KEY
+#   make start                    ← build + start
+#   make enter                    ← open shell
+#   new-project my-app typescript ← bootstrap a project
+#   ccb && claude                 ← start coding
+#
+# Mount your Mac projects folder:
+#   make mount  (then make restart)
+# ─────────────────────────────────────────────────────────────────
+
+services:
+  claude-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        CLAUDE_CODE_VERSION: latest
+
+    image: claude-dev-sandbox:latest
+    container_name: claude-dev
+
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+      - WORKSPACE_NAME=${WORKSPACE_NAME:-workspace}
+      - TERM=xterm-256color
+      - COLORTERM=truecolor
+      - CLAUDE_CODE_DISABLE_TELEMETRY=${CLAUDE_CODE_DISABLE_TELEMETRY:-0}
+
+    volumes:
+      # Projects workspace (override with host folder via docker-compose.override.yml)
+      - workspace:/workspace
+      # Persists mode config, audit log, metrics across rebuilds
+      - claude-config:/root/.claude
+
+    networks:
+      - claude-net
+
+    healthcheck:
+      test: ["CMD", "claude", "--version"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  workspace:
+    name: claude-workspace
+  claude-config:
+    name: claude-config
+
+networks:
+  claude-net:
+    driver: bridge

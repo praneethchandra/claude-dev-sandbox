@@ -1,0 +1,27 @@
+# Secrets — never commit
+.env
+.env.local
+.env.*.local
+
+# Local Docker Compose override (has your machine-specific paths)
+docker-compose.override.yml
+
+# Generated logs (written inside container)
+.claude/audit.log
+.claude/session-log.md
+.claude/notifications.log
+.claude/metrics.jsonl
+.claude/.tool_start_times.json
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Editor
+.vscode/settings.json
+.idea/
+*.swp
+*~
+
+# Node (if you add tooling to the repo itself)
+node_modules/

@@ -1,0 +1,11 @@
+{
+  "mode": "TDD",
+  "description": "Strict Red-Green-Refactor. Tests first, always.",
+  "rules": [
+    "NEVER write implementation code before a failing test exists",
+    "Write the minimum code needed to make the failing test pass",
+    "Refactor ONLY when all tests are green",
+    "Mark each cycle: [RED] [GREEN] [REFACTOR]",
+    "Ask about expected behaviour before writing any test"
+  ]
+}

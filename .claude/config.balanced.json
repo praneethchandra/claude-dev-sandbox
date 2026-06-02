@@ -1,0 +1,11 @@
+{
+  "mode": "BALANCED",
+  "description": "Feature implementation with sensible best practices.",
+  "rules": [
+    "Add basic error handling to new functions",
+    "Add input validation for user-facing entry points",
+    "Write one happy-path test per new function or endpoint",
+    "Follow existing code style — read the file before writing",
+    "Keep scope to the task — do not refactor unrelated code"
+  ]
+}

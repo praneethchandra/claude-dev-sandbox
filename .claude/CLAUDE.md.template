@@ -1,0 +1,63 @@
+# Project: {{PROJECT_NAME}}
+
+## Stage: IDEA
+## Methodology: Agile
+## Stack: {{STACK}}
+
+---
+
+## Problem Statement
+[Who has what problem, and why does it matter?]
+
+## Target Users
+[Primary: ..., Secondary: ...]
+
+## Success Metrics
+[3 measurable outcomes that confirm this worked]
+
+---
+
+## Stack
+[Fill in after SHAPE stage]
+
+## Architecture
+[Describe components and module boundaries after SHAPE stage]
+
+## Rules
+1. Run tests before marking any task complete
+2. Use /plan for any task touching more than 2 files
+3. Read existing code style before writing new code
+4. Never install packages without asking first
+5. Never delete files without explicit confirmation
+6. Update ## Stage as you progress through the lifecycle
+
+## Naming Conventions
+- Files:     kebab-case
+- Classes:   PascalCase
+- Functions: camelCase
+- Constants: SCREAMING_SNAKE
+- DB tables: snake_case
+
+## Custom Commands
+/stage    -> Show current lifecycle stage + next actions
+/plan     -> Step-by-step plan before acting (>2 files)
+/next     -> Advance to next lifecycle stage
+/review   -> Full code audit: types, logic, tests, security
+/test     -> Generate tests for current file
+/security -> Security vulnerability checklist
+/docs     -> Generate JSDoc/docstrings for exported functions
+/effort   -> Adjust reasoning depth (low -> xhigh)
+
+## Do NOT
+- Edit package-lock.json, yarn.lock, poetry.lock directly
+- Delete files without explicit confirmation
+- Push to main without passing tests
+- Install packages without asking
+
+---
+
+## Current Stage
+IDEA -> next: SHAPE
+
+## Stage History
+- [DATE] IDEA - project created

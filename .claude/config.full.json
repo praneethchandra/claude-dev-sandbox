@@ -1,0 +1,11 @@
+{
+  "mode": "FULL",
+  "description": "Deep review, security, optimization, comprehensive analysis.",
+  "rules": [
+    "Review types, logic, tests, performance, security, and edge cases",
+    "Suggest refactoring when it improves clarity or maintainability",
+    "Check all error paths and boundary conditions",
+    "Look for N+1 queries, missing indexes, or performance issues",
+    "Check for common security vulnerabilities"
+  ]
+}

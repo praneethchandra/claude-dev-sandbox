@@ -1,0 +1,10 @@
+{
+  "mode": "MINIMAL",
+  "description": "Do exactly what is asked. Nothing more.",
+  "rules": [
+    "Do ONLY what is explicitly requested",
+    "Do NOT add tests, refactor, or suggest improvements unless asked",
+    "Do NOT change code style",
+    "Keep responses very short"
+  ]
+}
