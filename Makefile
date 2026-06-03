@@ -1,204 +1,159 @@
 .PHONY: help build start stop restart enter logs status mode \
-        open export mount metrics metrics-detail metrics-today metrics-all \
-        edit-hooks edit-claude skills rebuild clean purge check auth auth-help token
+        fix-network diagnose proxy-find open export mount \
+        metrics metrics-detail metrics-today metrics-all \
+        edit-hooks edit-claude skills auth rebuild clean purge check
 
 CONTAINER := claude-dev
-IMAGE     := claude-dev-sandbox:latest
 COMPOSE   := docker compose
 PROJECT   ?=
 TO        ?= ~/projects
 MODE      ?=
 
-BOLD  := \033[1m
-GREEN := \033[0;32m
-CYAN  := \033[0;36m
-AMBER := \033[0;33m
-DIM   := \033[2m
-RESET := \033[0m
+B := \033[1m
+G := \033[0;32m
+C := \033[0;36m
+A := \033[0;33m
+D := \033[2m
+R := \033[0m
 
-## help: Show all available targets
+## help: Show all targets
 help:
-	@echo ""
-	@echo "$(BOLD)Claude Code Dev Sandbox$(RESET)"
-	@echo "──────────────────────────────────────────────────────────────"
-	@grep -E '^## [a-zA-Z_-]+:' Makefile | sed 's/^## //' | \
-		awk -F: '{printf "  $(CYAN)%-24s$(RESET) %s\n", $$1, $$2}'
-	@echo ""
+	@echo "" && echo "$(B)Claude Code Dev Sandbox$(R)" && \
+	echo "──────────────────────────────────────────────────" && \
+	grep -E '^## [a-zA-Z_-]+:' Makefile | sed 's/^## //' | \
+	awk -F: '{printf "  $(C)%-22s$(R) %s\n", $$1, $$2}' && echo ""
 
-# ── Container lifecycle ───────────────────────────────────────────
-
-## build: Build the Docker image from scratch
+## build: Build Docker image from scratch
 build:
-	$(COMPOSE) build --no-cache && echo "$(GREEN)Done$(RESET)"
+	$(COMPOSE) build --no-cache
 
-## start: Start the sandbox (builds if needed)
+## start: Start the sandbox (builds image if needed)
 start:
-	@[ -f .env ] || (echo "$(AMBER)Copy .env.example to .env first$(RESET)" && exit 1)
-	$(COMPOSE) up -d && echo "$(GREEN)Running$(RESET)  ->  make enter"
+	@[ -f .env ] || (echo "$(A)Run: cp .env.example .env$(R)" && exit 1)
+	$(COMPOSE) up -d && echo "$(G)Running$(R)  ->  make enter"
 
-## stop: Stop the container (data preserved)
+## stop: Stop container (data preserved in volumes)
 stop:
-	$(COMPOSE) stop && echo "$(GREEN)Stopped$(RESET)"
+	$(COMPOSE) stop
 
 ## restart: Stop then start
 restart: stop start
 
-## enter: Open an interactive shell inside the container
+## enter: Open interactive shell inside container
 enter:
 	@docker exec -it $(CONTAINER) zsh 2>/dev/null || \
-		(echo "$(AMBER)Not running - run: make start$(RESET)" && exit 1)
+		(echo "$(A)Not running — run: make start$(R)" && exit 1)
 
 ## logs: Tail container output
 logs:
 	$(COMPOSE) logs -f
 
-## status: Show container status, auth method, and active mode
+## status: Show container status and active mode
 status:
-	@echo ""
-	@echo "$(BOLD)Container:$(RESET)  $$(docker ps --filter name=$(CONTAINER) --format '{{.Status}}' 2>/dev/null || echo 'not running')"
-	@echo "$(BOLD)Mode:$(RESET)       $$(docker exec $(CONTAINER) switch-mode show 2>/dev/null || echo 'container not running')"
-	@echo "$(BOLD)Claude:$(RESET)     $$(docker exec $(CONTAINER) claude --version 2>/dev/null | head -1 || echo 'n/a')"
-	@echo ""
+	@echo "" && \
+	docker ps --filter name=$(CONTAINER) --format "  Status: {{.Status}}" && \
+	docker exec $(CONTAINER) switch-mode show 2>/dev/null | sed 's/^/  /' && echo ""
 
 ## mode: Set dev mode from host  usage: make mode MODE=full
 mode:
 	@[ -n "$(MODE)" ] || (echo "Usage: make mode MODE=[minimal|balanced|full|tdd]" && exit 1)
 	docker exec $(CONTAINER) switch-mode $(MODE)
 
+# ── Network ───────────────────────────────────────────────────────
+
+## fix-network: Auto-detect and fix network issues (run on Mac, not inside container)
+fix-network:
+	@bash scripts/fix-network.sh
+
+## diagnose: Run connectivity diagnostics inside container
+diagnose:
+	@docker exec -it $(CONTAINER) bash /usr/local/claude-scripts/diagnose.sh || \
+		(echo "$(A)Not running — make start$(R)" && exit 1)
+
+## proxy-find: Show Mac proxy settings and .env snippet to copy
+proxy-find:
+	@echo "" && echo "$(B)Mac proxy settings$(R)" && \
+	scutil --proxy 2>/dev/null | grep -E "(HTTP|Proxy|Port|Enable)" || echo "  none" && \
+	echo "" && echo "$(B)Add to .env if proxy is shown above:$(R)" && \
+	PROXY=$$(scutil --proxy 2>/dev/null | \
+		awk '/HTTPSProxy\s*:/{s=$$3}/HTTPSPort\s*:/{p=$$3}END{if(s && s!="(null)")print "http://"s":"p}'); \
+	[ -n "$$PROXY" ] && \
+		echo "  HTTPS_PROXY=$$PROXY" && echo "  HTTP_PROXY=$$PROXY" && \
+		echo "  NO_PROXY=localhost,127.0.0.1" || \
+		echo "  (no proxy detected — check Docker Desktop proxy settings)" && echo ""
+
 # ── Authentication ────────────────────────────────────────────────
 
-## auth: Authenticate via browser (for corporate/subscription users)
+## auth: Sign in via browser (works with corporate Claude subscription)
 auth:
-	@echo ""
-	@echo "$(BOLD)Browser OAuth authentication$(RESET)"
-	@echo "─────────────────────────────────────────"
-	@echo "Opening a shell in the container..."
-	@echo "Type $(BOLD)claude$(RESET) when the prompt appears."
-	@echo "Claude will show a URL - open it in your Mac browser."
-	@echo "Sign in with your corporate Claude account."
-	@echo "The token is saved in the Docker volume automatically."
-	@echo ""
+	@echo "$(C)Open container shell, then type 'claude' and open the URL shown in your Mac browser.$(R)"
 	docker exec -it $(CONTAINER) zsh
 
-## token: Generate a long-lived OAuth token (run on Mac, not in Docker)
-token:
-	@echo ""
-	@echo "$(BOLD)Generating a long-lived OAuth token$(RESET)"
-	@echo "─────────────────────────────────────────"
-	@echo "This runs on your Mac (not in Docker)."
-	@echo "You need Claude Code installed locally: npm i -g @anthropic-ai/claude-code"
-	@echo ""
-	@command -v claude >/dev/null 2>&1 || \
-		(echo "$(AMBER)Claude Code not on Mac. Run: npm i -g @anthropic-ai/claude-code$(RESET)" && exit 1)
-	@claude auth token
-	@echo ""
-	@echo "$(GREEN)Copy the token above into .env as:$(RESET)"
-	@echo "  CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-..."
-	@echo "Then: make restart"
-	@echo ""
-
-## auth-help: Show all authentication options with instructions
+## auth-help: Show all authentication options
 auth-help:
+	@echo "" && echo "$(B)Authentication options$(R)" && echo ""
+	@echo "1. $(B)API key$(R)         .env: ANTHROPIC_API_KEY=sk-ant-..."
+	@echo "2. $(B)Browser OAuth$(R)   make auth -> type: claude -> open URL in Mac browser"
+	@echo "3. $(B)AWS Bedrock$(R)     .env: CLAUDE_CODE_USE_BEDROCK=1 + AWS creds"
+	@echo "4. $(B)Vertex AI$(R)       .env: CLAUDE_CODE_USE_VERTEX=1 + GCP project"
 	@echo ""
-	@echo "$(BOLD)Claude Code Authentication Options$(RESET)"
-	@echo "══════════════════════════════════════════════════════════════"
-	@echo ""
-	@echo "$(BOLD)Option 1 - Browser OAuth (easiest, no key needed)$(RESET)"
-	@echo "  Works with Pro, Max, Team, or Enterprise Claude subscription."
-	@echo "  make auth    <- opens container shell"
-	@echo "  Then type: claude"
-	@echo "  Open the URL shown in your Mac browser and sign in."
-	@echo "  Token saved in Docker volume - persists forever."
-	@echo ""
-	@echo "$(BOLD)Option 2 - Long-lived OAuth token (for CI/headless)$(RESET)"
-	@echo "  Generate once on your Mac: make token"
-	@echo "  Add to .env: CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-..."
-	@echo "  make restart"
-	@echo ""
-	@echo "$(BOLD)Option 3 - AWS Bedrock$(RESET)"
-	@echo "  If your company uses Claude through AWS."
-	@echo "  Add to .env:"
-	@echo "    CLAUDE_CODE_USE_BEDROCK=1"
-	@echo "    AWS_ACCESS_KEY_ID=..."
-	@echo "    AWS_SECRET_ACCESS_KEY=..."
-	@echo "    AWS_REGION=us-east-1"
-	@echo "  Or mount ~/.aws via docker-compose.override.yml"
-	@echo ""
-	@echo "$(BOLD)Option 4 - Google Vertex AI$(RESET)"
-	@echo "  If your company uses Claude through GCP."
-	@echo "  Add to .env:"
-	@echo "    CLAUDE_CODE_USE_VERTEX=1"
-	@echo "    CLOUD_ML_REGION=us-east5"
-	@echo "    ANTHROPIC_VERTEX_PROJECT_ID=your-project"
-	@echo ""
-	@echo "$(BOLD)Option 5 - Internal LLM gateway / proxy$(RESET)"
-	@echo "  If your company has an internal AI gateway."
-	@echo "  Ask IT for the gateway URL and bearer token. Add to .env:"
-	@echo "    ANTHROPIC_BASE_URL=https://ai-gateway.yourcompany.com"
-	@echo "    ANTHROPIC_AUTH_TOKEN=your-bearer-token"
-	@echo ""
-	@echo "$(BOLD)Option 6 - Anthropic API key$(RESET)"
-	@echo "  Ask IT admin for a key from console.anthropic.com."
-	@echo "  Add to .env: ANTHROPIC_API_KEY=sk-ant-api03-..."
-	@echo ""
+	@echo "$(B)Auth conflict error?$(R)"
+	@echo "  Only ONE method should be set at a time."
+	@echo "  Check .env — comment out any extras."
+	@echo "" && echo "$(B)Network issues?$(R)  make fix-network" && echo ""
 
 # ── IDE integration ───────────────────────────────────────────────
 
-## open: Open VS Code attached to the running container
-##       usage: make open  OR  make open PROJECT=my-app
+## open: Open VS Code attached to container  usage: make open [PROJECT=name]
 open:
-	@CONTAINER_ID=$$(docker inspect $(CONTAINER) --format='{{.Id}}' 2>/dev/null) && \
-	[ -n "$$CONTAINER_ID" ] || (echo "$(AMBER)Not running - make start$(RESET)" && exit 1) && \
-	FOLDER="/workspace$$([ -n '$(PROJECT)' ] && echo '/$(PROJECT)' || echo '')" && \
-	HEX=$$(printf '%s' "$$CONTAINER_ID" | xxd -p | tr -d '\n') && \
-	code --folder-uri "vscode-remote://attached-container+$$HEX$$FOLDER" 2>/dev/null || \
-	echo "$(AMBER)Install VS Code 'Dev Containers' extension and add 'code' to PATH$(RESET)"
+	@ID=$$(docker inspect $(CONTAINER) --format='{{.Id}}' 2>/dev/null) && \
+	[ -n "$$ID" ] || (echo "$(A)make start first$(R)" && exit 1) && \
+	F="/workspace$$([ -n '$(PROJECT)' ] && echo '/$(PROJECT)')" && \
+	HEX=$$(printf '%s' "$$ID" | xxd -p | tr -d '\n') && \
+	code --folder-uri "vscode-remote://attached-container+$$HEX$$F" 2>/dev/null || \
+	echo "$(A)Install VS Code 'Dev Containers' extension$(R)"
 
 # ── Files ─────────────────────────────────────────────────────────
 
-## export: Copy a project from container to Mac
-##         usage: make export PROJECT=my-app  [TO=~/Desktop]
+## export: Copy project from container to Mac  usage: make export PROJECT=name [TO=path]
 export:
-	@[ -n "$(PROJECT)" ] || (echo "Usage: make export PROJECT=<name> [TO=~/projects]" && exit 1)
-	@mkdir -p $(TO)
-	docker cp $(CONTAINER):/workspace/$(PROJECT) $(TO)/
-	@echo "$(GREEN)Exported to $(TO)/$(PROJECT)$(RESET)"
+	@[ -n "$(PROJECT)" ] || (echo "Usage: make export PROJECT=<name>" && exit 1)
+	@mkdir -p $(TO) && docker cp $(CONTAINER):/workspace/$(PROJECT) $(TO)/
+	@echo "$(G)Exported to $(TO)/$(PROJECT)$(R)"
 
 ## mount: Set up host folder mount so code is visible on Mac
 mount:
 	@[ -f docker-compose.override.yml ] || \
 		(cp docker-compose.override.yml.example docker-compose.override.yml && \
-		 echo "$(GREEN)Created docker-compose.override.yml$(RESET)")
-	@echo "$(CYAN)Edit the file, then: make restart$(RESET)"
-	@$${EDITOR:-nano} docker-compose.override.yml
+		 echo "$(G)Created docker-compose.override.yml$(R)")
+	$${EDITOR:-nano} docker-compose.override.yml && echo "Run: make restart"
 
 # ── Metrics ───────────────────────────────────────────────────────
 
 ## metrics: Token usage dashboard (last 7 days)
 metrics:
 	@docker exec $(CONTAINER) python3 /usr/local/claude-scripts/metrics.py 2>/dev/null || \
-		echo "$(AMBER)Not running - make start$(RESET)"
+		echo "$(A)make start first$(R)"
 
-## metrics-detail: Per-tool breakdown with timestamps
+## metrics-detail: Per-tool breakdown
 metrics-detail:
-	@docker exec $(CONTAINER) python3 /usr/local/claude-scripts/metrics.py --detail 2>/dev/null || true
+	@docker exec $(CONTAINER) python3 /usr/local/claude-scripts/metrics.py --detail 2>/dev/null
 
 ## metrics-today: Today's usage only
 metrics-today:
-	@docker exec $(CONTAINER) python3 /usr/local/claude-scripts/metrics.py --today 2>/dev/null || true
+	@docker exec $(CONTAINER) python3 /usr/local/claude-scripts/metrics.py --today 2>/dev/null
 
 ## metrics-all: Full history
 metrics-all:
-	@docker exec $(CONTAINER) python3 /usr/local/claude-scripts/metrics.py --all 2>/dev/null || true
+	@docker exec $(CONTAINER) python3 /usr/local/claude-scripts/metrics.py --all 2>/dev/null
 
 # ── Config editing ────────────────────────────────────────────────
 
-## edit-hooks: Edit the hooks config (settings.json)
+## edit-hooks: Edit hooks config (settings.json) inside container
 edit-hooks:
 	docker exec -it $(CONTAINER) $${EDITOR:-nano} /root/.claude/settings.json
 
-## edit-claude: Edit CLAUDE.md for a project
-##              usage: make edit-claude PROJECT=my-app
+## edit-claude: Edit project CLAUDE.md  usage: make edit-claude PROJECT=name
 edit-claude:
 	@[ -n "$(PROJECT)" ] || (echo "Usage: make edit-claude PROJECT=<name>" && exit 1)
 	docker exec -it $(CONTAINER) $${EDITOR:-nano} /workspace/$(PROJECT)/.claude/CLAUDE.md
@@ -206,7 +161,7 @@ edit-claude:
 ## skills: List installed MCP plugins
 skills:
 	@docker exec $(CONTAINER) claude plugin list 2>/dev/null || \
-		echo "Run 'make enter' then '/plugin' to install plugins"
+		echo "make enter -> /plugin to browse and install"
 
 # ── Maintenance ───────────────────────────────────────────────────
 
@@ -216,38 +171,36 @@ rebuild:
 
 ## clean: Remove container + image (volumes preserved)
 clean:
-	$(COMPOSE) down --rmi local && echo "$(GREEN)Cleaned (data preserved)$(RESET)"
+	$(COMPOSE) down --rmi local && echo "$(G)Cleaned (data preserved)$(R)"
 
-## purge: Remove everything including volumes
+## purge: Remove everything including workspace volumes ⚠
 purge:
-	@echo "$(AMBER)This will delete all workspace data$(RESET)"
-	@read -p "Type 'yes' to confirm: " c && [ "$$c" = "yes" ]
-	$(COMPOSE) down -v --rmi local && echo "$(GREEN)Purged$(RESET)"
+	@read -p "Delete ALL workspace data? Type 'yes': " c && [ "$$c" = "yes" ]
+	$(COMPOSE) down -v --rmi local && echo "$(G)Purged$(R)"
 
 ## check: Verify prerequisites
 check:
-	@echo "$(BOLD)Checking prerequisites...$(RESET)"
-	@command -v docker >/dev/null && echo "  $(GREEN)Docker$(RESET)" || echo "  MISSING: Docker"
-	@docker compose version >/dev/null 2>&1 && echo "  $(GREEN)Docker Compose$(RESET)" || echo "  MISSING: Compose"
-	@docker info >/dev/null 2>&1 && echo "  $(GREEN)Docker daemon running$(RESET)" || \
-		echo "  $(AMBER)Docker daemon not running - open Docker Desktop$(RESET)"
-	@[ -f .env ] && echo "  $(GREEN).env file$(RESET)" || echo "  $(AMBER).env missing - cp .env.example .env$(RESET)"
-	@[ -f docker-compose.override.yml ] && \
-		echo "  $(GREEN)Host mount configured$(RESET)" || \
-		echo "  $(DIM)No host mount (run 'make mount' to expose files on Mac)$(RESET)"
-	@echo ""
-	@echo "  Auth check:"
-	@grep -v "^#" .env 2>/dev/null | grep -qE "ANTHROPIC_API_KEY=sk-|CLAUDE_CODE_OAUTH_TOKEN=sk-|CLAUDE_CODE_USE_BEDROCK=1|CLAUDE_CODE_USE_VERTEX=1|ANTHROPIC_AUTH_TOKEN=." && \
-		echo "  $(GREEN)Auth configured in .env$(RESET)" || \
-		echo "  $(DIM)No auth in .env (browser OAuth also works - see: make auth-help)$(RESET)"
-	@echo ""
+	@echo "$(B)Prerequisites$(R)"
+	@command -v docker >/dev/null && echo "  $(G)Docker$(R)" || echo "  MISSING: Docker"
+	@docker compose version >/dev/null 2>&1 && echo "  $(G)Docker Compose$(R)" || echo "  MISSING"
+	@docker info >/dev/null 2>&1 && echo "  $(G)Daemon running$(R)" || \
+		echo "  $(A)Open Docker Desktop$(R)"
+	@[ -f .env ] && echo "  $(G).env file$(R)" || echo "  $(A)cp .env.example .env$(R)"
+	@grep -v "^#" .env 2>/dev/null | \
+		grep -qE "ANTHROPIC_API_KEY=sk-|USE_BEDROCK=1|USE_VERTEX=1" && \
+		echo "  $(G)Auth configured in .env$(R)" || \
+		echo "  $(D)No auth in .env (browser OAuth works — make auth)$(R)"
+	@CONFLICTS=$$(grep -v "^#" .env 2>/dev/null | \
+		grep -cE "^(ANTHROPIC_API_KEY=sk-|ANTHROPIC_AUTH_TOKEN=.+|CLAUDE_CODE_OAUTH_TOKEN=sk-)" || true); \
+		[ "$$CONFLICTS" -gt 1 ] && \
+		echo "  $(A)Auth conflict: multiple methods set in .env — comment out all but one$(R)" || true
+	@echo "" && echo "  Network: make fix-network  |  Auth: make auth-help"
 
 ## pull: Pull latest base image
 pull:
 	docker pull node:20-bookworm-slim
 
-## push: Build and push to registry
-##       usage: make push REGISTRY=ghcr.io/username
+## push: Build and push to registry  usage: make push REGISTRY=ghcr.io/username
 push:
 	@[ -n "$(REGISTRY)" ] || (echo "Usage: make push REGISTRY=ghcr.io/username" && exit 1)
 	docker build -t $(REGISTRY)/claude-dev-sandbox:latest . && \

@@ -1,33 +1,22 @@
 # docker-compose.override.yml.example
-#
-# HOW TO USE:
-#   cp docker-compose.override.yml.example docker-compose.override.yml
-#   Edit paths/options below, then: make restart
-#
-# Docker Compose merges this with docker-compose.yml automatically.
-# docker-compose.override.yml is in .gitignore (has your local paths).
+# cp docker-compose.override.yml.example docker-compose.override.yml
+# Edit, then: make restart
 
 services:
   claude-dev:
     volumes:
-      # ── Mount your Mac projects folder ────────────────────────
-      # Change ~/projects to your actual path.
-      # After make restart: ~/projects/my-app on Mac
-      #                   = /workspace/my-app in container
+      # Mount your Mac projects folder so files are visible in both places:
+      # ~/projects/my-app on Mac = /workspace/my-app in container
       - ~/projects:/workspace
 
-      # ── Git identity ──────────────────────────────────────────
+      # Git identity inside container
       - ~/.gitconfig:/root/.gitconfig:ro
 
-      # ── SSH keys for git push ─────────────────────────────────
+      # SSH keys for git push to GitHub
       # - ~/.ssh:/root/.ssh:ro
 
-      # ── AWS credentials for Bedrock auth ─────────────────────
+      # AWS credentials for Bedrock auth
       # - ~/.aws:/root/.aws:ro
 
-      # ── GCP credentials for Vertex AI auth ───────────────────
+      # GCP credentials for Vertex AI auth
       # - ~/.config/gcloud:/root/.config/gcloud:ro
-
-      # ── Pre-authenticated OAuth credentials from your Mac ─────
-      # Run 'claude' on Mac first to authenticate, then uncomment:
-      # - ~/.claude/.credentials.json:/root/.claude/.credentials.json:ro

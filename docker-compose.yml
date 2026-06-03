@@ -5,42 +5,46 @@ services:
       dockerfile: Dockerfile
       args:
         CLAUDE_CODE_VERSION: latest
+        HTTP_PROXY:  ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY:    ${NO_PROXY:-}
     image: claude-dev-sandbox:latest
     container_name: claude-dev
     stdin_open: true
     tty: true
     restart: unless-stopped
     environment:
-      # ── Auth method 1: API key ──────────────────────────────
+      # ── Auth (uncomment ONE in .env) ─────────────────────────
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      # ── Auth method 2: OAuth token ──────────────────────────
-      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN:-}
-      # ── Auth method 3: AWS Bedrock ──────────────────────────
       - CLAUDE_CODE_USE_BEDROCK=${CLAUDE_CODE_USE_BEDROCK:-}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
-      - AWS_REGION=${AWS_REGION:-}
-      - AWS_PROFILE=${AWS_PROFILE:-}
-      # ── Auth method 4: Google Vertex AI ─────────────────────
+      - AWS_REGION=${AWS_REGION:-aws_region_not_set}
       - CLAUDE_CODE_USE_VERTEX=${CLAUDE_CODE_USE_VERTEX:-}
       - CLOUD_ML_REGION=${CLOUD_ML_REGION:-}
       - ANTHROPIC_VERTEX_PROJECT_ID=${ANTHROPIC_VERTEX_PROJECT_ID:-}
-      # ── Auth method 5: LLM Gateway ──────────────────────────
-      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
-      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
-      # ── General ─────────────────────────────────────────────
+      # ── Proxy (for corporate networks) ───────────────────────
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - http_proxy=${HTTP_PROXY:-}
+      - https_proxy=${HTTPS_PROXY:-}
+      - NO_PROXY=${NO_PROXY:-localhost,127.0.0.1}
+      - no_proxy=${NO_PROXY:-localhost,127.0.0.1}
+      # ── General ──────────────────────────────────────────────
       - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-sonnet-4-6}
-      - WORKSPACE_NAME=${WORKSPACE_NAME:-workspace}
-      - CLAUDE_CODE_DISABLE_TELEMETRY=${CLAUDE_CODE_DISABLE_TELEMETRY:-0}
       - TERM=xterm-256color
       - COLORTERM=truecolor
     volumes:
-      # Projects workspace
+      # Projects workspace (use docker-compose.override.yml to mount ~/projects)
       - workspace:/workspace
-      # Persists mode config, OAuth credentials, metrics, audit log
+      # Persists OAuth credentials, mode config, audit log, metrics
       - claude-config:/root/.claude
     networks:
       - claude-net
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    dns_search: []
     healthcheck:
       test: ["CMD", "claude", "--version"]
       interval: 60s
